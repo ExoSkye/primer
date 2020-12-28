@@ -3,6 +3,8 @@
 #include <Tracy.hpp>
 #include <TracyC.h>
 #include <cuda.h>
+#include <mutex>
+#include <thread>
 
 typedef unsigned long long int ulli;
 
@@ -21,26 +23,35 @@ __global__ void checkPrime(bool* divisible, ulli tocheck,ulli offset) {
     ulli i = blockDim.x * blockIdx.x + threadIdx.x + offset;
     if (i < tocheck) {
         if (tocheck % i == 0) {
-            divisible[i] = true;
+            divisible[i-offset] = true;
         }
         else {
-            divisible[i] = false;
+            divisible[i-offset] = false;
         }
     }
 
 }
 
+std::mutex m;
+
+struct divstruct {
+    int divisible;
+};
+
+__global__ void parallelfunc(bool* divarray,ulli* divisibles) {
+    ulli i = blockDim.x * blockIdx.x + threadIdx.x;
+    if (divarray[i]) {
+        atomicAdd(divisibles, 1);
+    }
+}
+
 __host__ int checkPrime(ulli num, ulli step) {
     ZoneScopedN("Prime checking loop")
-    TracyCZoneN(alloc,"Allocating memory on:",true)
-    int divisibles = 0;
-    TracyCZoneN(hostalloc,"HOST",true)
-    bool *divarray = (bool *) malloc(step * sizeof(bool));
-    TracyCZoneEnd(hostalloc)
-    TracyCZoneN(gpualloc,"GPU",true)
+    TracyCZoneN(alloc,"Allocating memory on GPU",true)
     bool *device_divarray = nullptr;
     cudaMalloc((void **) &device_divarray, step * sizeof(bool));
-    TracyCZoneEnd(gpualloc)
+    ulli* d_divisibles = nullptr;
+    cudaMalloc((void**)&d_divisibles, sizeof(ulli));
     TracyCZoneEnd(alloc)
     for (ulli i = 0; i < num; i+=step) {
         TracyCZoneN(loop,"Prime check loop",true);
@@ -49,28 +60,21 @@ __host__ int checkPrime(ulli num, ulli step) {
         TracyCZoneN(kernelrun,"Running kernel",true)
         checkPrime<<<blocksPerGrid, threadsPerBlock>>>(device_divarray, num,i);
         TracyCZoneEnd(kernelrun)
-        TracyCZoneN(memcpygpu,"Copy results over",true)
-        cudaMemcpy(divarray, device_divarray, step * sizeof(bool), cudaMemcpyDeviceToHost);
-        cudaFree(device_divarray);
-        TracyCZoneEnd(memcpygpu)
         TracyCZoneN(interpret,"Interpret results",true)
-#pragma omp parallel for
-        for (ulli j = 0; j < step; j++) {
-            if (divarray[j]) {
-                divisibles++;
-            }
-        }
+        parallelfunc<<<blocksPerGrid, threadsPerBlock>>>(device_divarray,d_divisibles);
         TracyCZoneEnd(interpret)
         TracyCZoneEnd(loop)
         FrameMark;
     }
-    if (divisibles == 0) {
+    ulli* divisibles = (ulli*)malloc(sizeof(ulli));
+    cudaMemcpy(divisibles,d_divisibles,sizeof(ulli),cudaMemcpyDeviceToHost);
+    if (*divisibles == 0) {
         printf("%llu is prime :)",num);
     }
     else {
         printf("%llu is not prime :'(",num);
     }
-    free(divarray);
+    cudaFree(device_divarray);
     return 0;
 }
 
@@ -84,15 +88,14 @@ __host__ int main(int argc, char** argv) {
     else if (argc == 2) {
         char* ptr;
         ulli i = 2147483648;
-        size_t freemem, total;
-        cuMemGetInfo(&freemem,&total);
-        ulli numtocheck = strtol(argv[1],&ptr,10);
+        ulli numtocheck;
+        sscanf(argv[1],"%llu",&numtocheck);
         printf("Working out optimum step size:\n");
         void* testobj;
         while (true) {
             i+=1073741824;
             testobj = malloc(i*sizeof(bool));
-            if (testobj == nullptr || i > freemem) {
+            if (testobj == nullptr || i > 2147483648) {
                 printf("[✖] %llu\n",i);
                 i-=1073741824;
                 break;
