@@ -86,7 +86,6 @@ __host__ int main(int argc, char** argv) {
                     "number:\t\tNumber to check for being prime",argv[0]);
     }
     else if (argc == 2) {
-        char* ptr;
         ulli i = 2147483648;
         ulli numtocheck;
         sscanf(argv[1],"%llu",&numtocheck);
