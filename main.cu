@@ -7,7 +7,7 @@
 #include <thread>
 
 typedef unsigned long long int ulli;
-
+/*
 void* operator new(std::size_t count) {
     auto ptr = malloc(count);
     TracyAlloc(ptr, count);
@@ -18,7 +18,7 @@ void operator delete(void* ptr) noexcept {
     TracyFree(ptr);
     free(ptr);
 }
-
+*/
 __global__ void checkPrime(bool* divisible, ulli tocheck,ulli offset) {
     ulli i = blockDim.x * blockIdx.x + threadIdx.x + offset;
     if (i < tocheck) {
