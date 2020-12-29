@@ -80,21 +80,24 @@ __host__ int checkPrime(ulli num, ulli step) {
 
 __host__ int main(int argc, char** argv) {
     ZoneScopedN("Program")
-    if (argc < 2 || argc > 2) {
+    if (argc < 2 || argc > 3) {
         printf("Inavlid parameters\n"
-                    "Usage: %s number\n"
-                    "number:\t\tNumber to check for being prime",argv[0]);
+                    "Usage: %s number gpumemory\n"
+                    "number:\t\tNumber to check for being prime\n"
+                    "gpumemory:\t\tAmount of GPU Memory you have, used in finding best size parameter",argv[0]);
     }
-    else if (argc == 2) {
+    else if (argc == 3) {
         ulli i = 2147483648;
         ulli numtocheck;
+        ulli gpumem;
+        sscanf(argv[2],"%llu",&gpumem);
         sscanf(argv[1],"%llu",&numtocheck);
         printf("Working out optimum step size:\n");
         void* testobj;
         while (true) {
             i+=1073741824;
             testobj = malloc(i*sizeof(bool));
-            if (testobj == nullptr || i > 2147483648) {
+            if (testobj == nullptr || i > gpumem) {
                 printf("[✖] %llu\n",i);
                 i-=1073741824;
                 break;
