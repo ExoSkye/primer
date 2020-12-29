@@ -19,6 +19,16 @@ void operator delete(void* ptr) noexcept {
     free(ptr);
 }
 */
+
+#ifndef TRACY_ENABLE
+# undef ZoneScopedN
+# undef TracyCZoneN
+# undef TracyCZoneEnd
+# define ZoneScopedN(text) printf("%s\n",text);
+# define TracyCZoneN(a,b,c) const char* a = b; printf("%s\n",b);
+# define TracyCZoneEnd(a) printf("%s ends\n", a);
+#endif
+
 __global__ void checkPrime(bool* divisible, ulli tocheck,ulli offset) {
     ulli i = blockDim.x * blockIdx.x + threadIdx.x + offset;
     if (i < tocheck) {
