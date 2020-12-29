@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.12)
 project(primer CUDA CXX)
 
 option(WITHTRACY "Defines whether tracy is to be used")
